@@ -1,0 +1,34 @@
+{
+  "name": "brain_meta_app",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev:brain": "tsx watch src/index.ts",
+    "dev:front": "npm --prefix frontend run dev",
+    "dev": "concurrently -n \"BRAIN,FRONT\" -c \"magenta,cyan\" \"npm run dev:brain\" \"npm run dev:front\"",
+    "build": "tsc && npm --prefix frontend run build",
+    "start": "concurrently -n \"BRAIN,FRONT\" -c \"magenta,cyan\" \"tsx src/index.ts\" \"npm --prefix frontend start\""
+  },
+  "bugs": {
+    "url": "https://github.com/jorgeanalista2008/brain_meta_app/issues"
+  },
+  "homepage": "https://github.com/jorgeanalista2008/brain_meta_app#readme",
+  "dependencies": {
+    "@google/genai": "^2.30.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.23.1",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "concurrently": "^10.0.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
