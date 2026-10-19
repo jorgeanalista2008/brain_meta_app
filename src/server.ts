@@ -46,9 +46,42 @@ app.get("/api/knowledge", async (_req, res) => {
       SELECT id, category, topic, content, created_at 
       FROM agent_knowledge 
       ORDER BY created_at DESC 
-      LIMIT 20;
+      LIMIT 50;
     `);
     res.json({ knowledge: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para guardar una regla directamente desde el formulario
+app.post("/api/knowledge", async (req, res) => {
+  try {
+    const { category, topic, content } = req.body;
+    if (!category || !topic || !content) {
+      return res.status(400).json({ error: "Todos los campos (category, topic, content) son obligatorios." });
+    }
+
+    const query = `
+      INSERT INTO agent_knowledge (category, topic, content)
+      VALUES ($1, $2, $3)
+      RETURNING id, category, topic, content, created_at;
+    `;
+    const result = await pool.query(query, [category, topic, content]);
+    console.log(`📚 [Regla Agregada] '${topic}' [${category}]`);
+    res.status(201).json({ success: true, item: result.rows[0] });
+  } catch (error: any) {
+    console.error("Error al guardar regla en PostgreSQL:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para eliminar una regla
+app.delete("/api/knowledge/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM agent_knowledge WHERE id = $1;", [id]);
+    res.json({ success: true, message: `Regla ${id} eliminada.` });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

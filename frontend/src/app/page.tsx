@@ -30,6 +30,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([]);
   const [errors, setErrors] = useState<any[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCategory, setNewCategory] = useState("rule");
+  const [newTopic, setNewTopic] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [isSubmittingRule, setIsSubmittingRule] = useState(false);
   const [health, setHealth] = useState<any>({
     status: "healthy",
     uptimeSeconds: 3600,
@@ -37,6 +42,50 @@ export default function Home() {
     databaseConnection: "connected",
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleCreateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTopic.trim() || !newContent.trim()) return;
+
+    setIsSubmittingRule(true);
+    try {
+      const res = await fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: newCategory,
+          topic: newTopic.trim(),
+          content: newContent.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        setShowAddModal(false);
+        setNewTopic("");
+        setNewContent("");
+        setNewCategory("rule");
+        await fetchKnowledge();
+      } else {
+        alert("Error al guardar la regla.");
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSubmittingRule(false);
+    }
+  };
+
+  const handleDeleteRule = async (id: number) => {
+    if (!confirm("¿Seguro que deseas eliminar esta regla de la memoria?")) return;
+    try {
+      const res = await fetch(`/api/knowledge/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        await fetchKnowledge();
+      }
+    } catch (err: any) {
+      alert("Error al eliminar regla: " + err.message);
+    }
+  };
 
   const fetchKnowledge = async () => {
     try {
@@ -505,21 +554,111 @@ export default function Home() {
                 <h2 className="text-base font-bold text-slate-900">Reglas y Soluciones en Memoria</h2>
                 <p className="text-xs text-slate-500">Almacenadas en la tabla agent_knowledge de PostgreSQL</p>
               </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5"
+              >
+                <span>+</span>
+                <span>Nueva Regla</span>
+              </button>
             </div>
+
+            {/* Modal para agregar regla */}
+            {showAddModal && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+                <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 className="font-bold text-sm text-slate-900">Agregar Nueva Regla al Cerebro</h3>
+                    <button
+                      onClick={() => setShowAddModal(false)}
+                      className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                    >
+                      &times;
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCreateRule} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Categoría</label>
+                      <select
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white"
+                      >
+                        <option value="rule">Regla Operativa (rule)</option>
+                        <option value="incident_solution">Solución a Incidente (incident_solution)</option>
+                        <option value="architecture">Arquitectura / Infraestructura (architecture)</option>
+                        <option value="user_preference">Preferencia de Usuario (user_preference)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Título o Tema Clave</label>
+                      <input
+                        type="text"
+                        required
+                        value={newTopic}
+                        onChange={(e) => setNewTopic(e.target.value)}
+                        placeholder="Ej: Procedimiento ante saturación de base de datos"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Procedimiento / Regla Detallada</label>
+                      <textarea
+                        required
+                        rows={4}
+                        value={newContent}
+                        onChange={(e) => setNewContent(e.target.value)}
+                        placeholder="Escribe el paso a paso exacto que Gemini debe seguir o recordar..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddModal(false)}
+                        className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingRule}
+                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
+                      >
+                        {isSubmittingRule ? "Guardando..." : "Guardar en PostgreSQL"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {knowledge.length === 0 ? (
               <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-xs text-slate-500">
-                Aún no hay reglas registradas. Puedes enseñarle una regla conversando en la pestaña de chat.
+                Aún no hay reglas registradas. Haz clic en <strong>+ Nueva Regla</strong> para crear la primera.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {knowledge.map((k) => (
-                  <div key={k.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-2">
-                    <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                      {k.category}
-                    </span>
+                  <div key={k.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-2 relative group hover:border-slate-300 transition">
+                    <div className="flex justify-between items-start">
+                      <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                        {k.category}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteRule(k.id)}
+                        title="Eliminar regla"
+                        className="text-slate-300 hover:text-red-600 text-xs transition p-1"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                     <h3 className="font-bold text-slate-900 text-xs">{k.topic}</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">{k.content}</p>
+                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{k.content}</p>
                     <div className="text-[10px] text-slate-400 pt-2 border-t border-slate-50">
                       Registrado: {new Date(k.created_at).toLocaleString()}
                     </div>
