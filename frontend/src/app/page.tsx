@@ -83,7 +83,15 @@ export default function Home() {
         body: JSON.stringify({ message: text }),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data: any = {};
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const textResp = await res.text();
+        data = { error: textResp || `Error del servidor (código ${res.status})` };
+      }
+
       const botTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
       if (res.ok && data.reply) {
@@ -101,7 +109,7 @@ export default function Home() {
         ...prev,
         {
           role: "bot",
-          content: `❌ No se pudo conectar con el Cerebro (Backend en :4000): ${err.message}`,
+          content: `❌ Error al conectar con el servidor: ${err.message}`,
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
