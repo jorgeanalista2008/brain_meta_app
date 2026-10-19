@@ -87,6 +87,56 @@ app.delete("/api/knowledge/:id", async (req, res) => {
   }
 });
 
+// ==========================================
+// CRUD DE CATEGORÍAS
+// ==========================================
+
+// Obtener todas las categorías
+app.get("/api/categories", async (_req, res) => {
+  try {
+    const result = await pool.query("SELECT id, slug, name, description, created_at FROM agent_categories ORDER BY id ASC;");
+    res.json({ categories: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Crear una nueva categoría
+app.post("/api/categories", async (req, res) => {
+  try {
+    const { slug, name, description } = req.body;
+    if (!slug || !name) {
+      return res.status(400).json({ error: "El slug y el nombre de la categoría son obligatorios." });
+    }
+
+    const cleanSlug = slug.trim().toLowerCase().replace(/\s+/g, "_");
+    const query = `
+      INSERT INTO agent_categories (slug, name, description)
+      VALUES ($1, $2, $3)
+      RETURNING id, slug, name, description, created_at;
+    `;
+    const result = await pool.query(query, [cleanSlug, name.trim(), description?.trim() || null]);
+    console.log(`🏷️ [Categoría Creada] '${name}' (${cleanSlug})`);
+    res.status(201).json({ success: true, category: result.rows[0] });
+  } catch (error: any) {
+    if (error.code === "23505") {
+      return res.status(409).json({ error: `La categoría con slug '${req.body.slug}' ya existe.` });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Eliminar una categoría
+app.delete("/api/categories/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM agent_categories WHERE id = $1;", [id]);
+    res.json({ success: true, message: `Categoría ${id} eliminada.` });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Endpoint para consultar el historial de errores e incidentes
 app.get("/api/errors", async (_req, res) => {
   try {

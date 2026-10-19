@@ -59,6 +59,24 @@ export async function initDatabase(): Promise<boolean> {
           resolved BOOLEAN DEFAULT FALSE,     -- Si el error fue mitigado o resuelto
           occurred_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- 5. Categorías dinámicas para organizar el conocimiento
+        CREATE TABLE IF NOT EXISTS agent_categories (
+          id SERIAL PRIMARY KEY,
+          slug VARCHAR(50) UNIQUE NOT NULL,   -- ej: 'rule', 'security', 'billing'
+          name VARCHAR(100) NOT NULL,         -- ej: 'Regla Operativa', 'Seguridad'
+          description TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Insertar categorías por defecto si no existen
+        INSERT INTO agent_categories (slug, name, description)
+        VALUES 
+          ('rule', 'Regla Operativa', 'Procedimientos y políticas operativas del sistema'),
+          ('incident_solution', 'Solución a Incidente', 'Acciones y resoluciones de contingencias pasadas'),
+          ('architecture', 'Arquitectura e Infraestructura', 'Políticas de servidores, microservicios y bases de datos'),
+          ('user_preference', 'Preferencia de Administrador', 'Reglas y preferencias de comunicación del equipo')
+        ON CONFLICT (slug) DO NOTHING;
       `);
 
       console.log("✅ [PostgreSQL] Tablas de memoria del agente listas.");

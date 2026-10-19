@@ -16,8 +16,16 @@ interface KnowledgeItem {
   created_at: string;
 }
 
+interface CategoryItem {
+  id: number;
+  slug: string;
+  name: string;
+  description?: string;
+  created_at: string;
+}
+
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"overview" | "chat" | "errors" | "knowledge">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "chat" | "errors" | "knowledge" | "categories">("overview");
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "bot",
@@ -29,12 +37,21 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [errors, setErrors] = useState<any[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategory, setNewCategory] = useState("rule");
   const [newTopic, setNewTopic] = useState("");
   const [newContent, setNewContent] = useState("");
   const [isSubmittingRule, setIsSubmittingRule] = useState(false);
+  
+  // States para crear nueva categoría
+  const [catName, setCatName] = useState("");
+  const [catSlug, setCatSlug] = useState("");
+  const [catDesc, setCatDesc] = useState("");
+  const [isSubmittingCat, setIsSubmittingCat] = useState(false);
+
   const [health, setHealth] = useState<any>({
     status: "healthy",
     uptimeSeconds: 3600,
@@ -42,6 +59,64 @@ export default function Home() {
     databaseConnection: "connected",
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch("/api/categories");
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data.categories || []);
+        if (data.categories?.length > 0 && !newCategory) {
+          setNewCategory(data.categories[0].slug);
+        }
+      }
+    } catch {}
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catName.trim() || !catSlug.trim()) return;
+
+    setIsSubmittingCat(true);
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: catName.trim(),
+          slug: catSlug.trim(),
+          description: catDesc.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setShowCategoryModal(false);
+        setCatName("");
+        setCatSlug("");
+        setCatDesc("");
+        await fetchCategories();
+      } else {
+        alert("Error al guardar categoría: " + (data.error || "Falla en servidor"));
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsSubmittingCat(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: number, name: string) => {
+    if (!confirm(`¿Seguro que deseas eliminar la categoría '${name}'?`)) return;
+    try {
+      const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        await fetchCategories();
+      }
+    } catch (err: any) {
+      alert("Error al eliminar categoría: " + err.message);
+    }
+  };
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +185,7 @@ export default function Home() {
   useEffect(() => {
     fetchKnowledge();
     fetchErrors();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
@@ -254,6 +330,23 @@ export default function Home() {
                 </span>
               )}
             </button>
+
+            <button
+              onClick={() => setActiveTab("categories")}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                activeTab === "categories"
+                  ? "bg-blue-50 text-blue-600 font-bold"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              <span>Categorías</span>
+              <span className="ml-auto bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px]">
+                {categories.length}
+              </span>
+            </button>
           </nav>
         </div>
 
@@ -276,6 +369,7 @@ export default function Home() {
               {activeTab === "chat" && "Asistente Operativo"}
               {activeTab === "knowledge" && "Base de Conocimiento (Memoria)"}
               {activeTab === "errors" && "Historial de Errores e Incidentes"}
+              {activeTab === "categories" && "Gestión de Categorías"}
             </h1>
           </div>
           <div className="flex items-center gap-3">
@@ -283,6 +377,7 @@ export default function Home() {
               onClick={() => {
                 fetchKnowledge();
                 fetchErrors();
+                fetchCategories();
               }}
               className="text-xs bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-md font-medium transition shadow-sm"
             >
@@ -585,10 +680,11 @@ export default function Home() {
                         onChange={(e) => setNewCategory(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white"
                       >
-                        <option value="rule">Regla Operativa (rule)</option>
-                        <option value="incident_solution">Solución a Incidente (incident_solution)</option>
-                        <option value="architecture">Arquitectura / Infraestructura (architecture)</option>
-                        <option value="user_preference">Preferencia de Usuario (user_preference)</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.slug}>
+                            {c.name} ({c.slug})
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -705,6 +801,141 @@ export default function Home() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab Categories */}
+        {activeTab === "categories" && (
+          <div className="p-8 max-w-5xl mx-auto w-full space-y-4">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Categorías de Conocimiento</h2>
+                <p className="text-xs text-slate-500">Administra las etiquetas que clasifican los aprendizajes del agente</p>
+              </div>
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5"
+              >
+                <span>+</span>
+                <span>Nueva Categoría</span>
+              </button>
+            </div>
+
+            {/* Modal para agregar categoría */}
+            {showCategoryModal && (
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+                <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 className="font-bold text-sm text-slate-900">Crear Nueva Categoría</h3>
+                    <button
+                      onClick={() => setShowCategoryModal(false)}
+                      className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                    >
+                      &times;
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCreateCategory} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Nombre Visible</label>
+                      <input
+                        type="text"
+                        required
+                        value={catName}
+                        onChange={(e) => {
+                          setCatName(e.target.value);
+                          if (!catSlug) {
+                            setCatSlug(e.target.value.toLowerCase().replace(/\s+/g, "_"));
+                          }
+                        }}
+                        placeholder="Ej: Seguridad y Accesos"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Identificador Slug (código único)</label>
+                      <input
+                        type="text"
+                        required
+                        value={catSlug}
+                        onChange={(e) => setCatSlug(e.target.value.toLowerCase().replace(/\s+/g, "_"))}
+                        placeholder="Ej: security_access"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 outline-none focus:border-blue-500 focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Descripción (Opcional)</label>
+                      <textarea
+                        rows={3}
+                        value={catDesc}
+                        onChange={(e) => setCatDesc(e.target.value)}
+                        placeholder="Describe el tipo de reglas que se agruparán en esta categoría..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowCategoryModal(false)}
+                        className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingCat}
+                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
+                      >
+                        {isSubmittingCat ? "Creando..." : "Crear Categoría"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Lista de Categorías en Tabla Mapbox */}
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">Nombre</th>
+                    <th className="py-3 px-4">Slug / Código</th>
+                    <th className="py-3 px-4">Descripción</th>
+                    <th className="py-3 px-4 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {categories.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-50/50 transition">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {c.name}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px]">
+                          {c.slug}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600">
+                        {c.description || "—"}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => handleDeleteCategory(c.id, c.name)}
+                          className="text-slate-400 hover:text-red-600 transition text-xs p-1"
+                          title="Eliminar categoría"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
