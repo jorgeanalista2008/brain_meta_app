@@ -87,8 +87,8 @@ app.get("/api/audit", async (_req, res) => {
 export async function startServer() {
   await initDatabase();
 
-  const PORT = config.port || 3000;
-  app.listen(PORT, () => {
-    console.log(`\n🚀 [Servidor Web] Control Center activo en: http://localhost:${PORT}`);
+  const PORT = config.port || 4000;
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`\n🚀 [Servidor Web] Control Center activo en: http://127.0.0.1:${PORT}`);
   });
 }
