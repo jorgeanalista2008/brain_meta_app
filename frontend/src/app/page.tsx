@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Swal from "sweetalert2";
 
 interface Message {
   role: "user" | "bot";
@@ -96,25 +97,69 @@ export default function Home() {
         setCatSlug("");
         setCatDesc("");
         await fetchCategories();
+        Swal.fire({
+          icon: "success",
+          title: "Categoría creada",
+          text: `La categoría '${catName}' se guardó exitosamente en PostgreSQL.`,
+          timer: 2000,
+          showConfirmButton: false,
+          customClass: { popup: "rounded-2xl" },
+        });
       } else {
-        alert("Error al guardar categoría: " + (data.error || "Falla en servidor"));
+        Swal.fire({
+          icon: "error",
+          title: "No se pudo guardar",
+          text: data.error || "Ocurrió una falla en el servidor.",
+          customClass: { popup: "rounded-2xl" },
+        });
       }
     } catch (err: any) {
-      alert("Error: " + err.message);
+      Swal.fire({
+        icon: "error",
+        title: "Error de conexión",
+        text: err.message,
+        customClass: { popup: "rounded-2xl" },
+      });
     } finally {
       setIsSubmittingCat(false);
     }
   };
 
   const handleDeleteCategory = async (id: number, name: string) => {
-    if (!confirm(`¿Seguro que deseas eliminar la categoría '${name}'?`)) return;
+    const result = await Swal.fire({
+      title: "¿Eliminar categoría?",
+      text: `Se eliminará la categoría '${name}'. Las reglas asociadas mantendrán su slug.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      customClass: { popup: "rounded-2xl" },
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
       if (res.ok) {
         await fetchCategories();
+        Swal.fire({
+          icon: "success",
+          title: "Eliminada",
+          text: "Categoría eliminada con éxito.",
+          timer: 1500,
+          showConfirmButton: false,
+          customClass: { popup: "rounded-2xl" },
+        });
       }
     } catch (err: any) {
-      alert("Error al eliminar categoría: " + err.message);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Error al eliminar categoría: " + err.message,
+        customClass: { popup: "rounded-2xl" },
+      });
     }
   };
 
@@ -138,27 +183,71 @@ export default function Home() {
         setShowAddModal(false);
         setNewTopic("");
         setNewContent("");
-        setNewCategory("rule");
+        setNewCategory(categories[0]?.slug || "rule");
         await fetchKnowledge();
+        Swal.fire({
+          icon: "success",
+          title: "Regla Registrada",
+          text: "El cerebro ahora recordará este procedimiento en PostgreSQL.",
+          timer: 2000,
+          showConfirmButton: false,
+          customClass: { popup: "rounded-2xl" },
+        });
       } else {
-        alert("Error al guardar la regla.");
+        Swal.fire({
+          icon: "error",
+          title: "Error al guardar",
+          text: "No se pudo registrar la regla en PostgreSQL.",
+          customClass: { popup: "rounded-2xl" },
+        });
       }
     } catch (err: any) {
-      alert("Error: " + err.message);
+      Swal.fire({
+        icon: "error",
+        title: "Error de red",
+        text: err.message,
+        customClass: { popup: "rounded-2xl" },
+      });
     } finally {
       setIsSubmittingRule(false);
     }
   };
 
   const handleDeleteRule = async (id: number) => {
-    if (!confirm("¿Seguro que deseas eliminar esta regla de la memoria?")) return;
+    const result = await Swal.fire({
+      title: "¿Eliminar regla de la memoria?",
+      text: "El agente ya no consultará este procedimiento en futuras operaciones.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Sí, borrar de la memoria",
+      cancelButtonText: "Cancelar",
+      customClass: { popup: "rounded-2xl" },
+    });
+
+    if (!result.isConfirmed) return;
+
     try {
       const res = await fetch(`/api/knowledge/${id}`, { method: "DELETE" });
       if (res.ok) {
         await fetchKnowledge();
+        Swal.fire({
+          icon: "success",
+          title: "Regla eliminada",
+          text: "Se borró de la base de datos PostgreSQL.",
+          timer: 1500,
+          showConfirmButton: false,
+          customClass: { popup: "rounded-2xl" },
+        });
       }
     } catch (err: any) {
-      alert("Error al eliminar regla: " + err.message);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Error al eliminar regla: " + err.message,
+        customClass: { popup: "rounded-2xl" },
+      });
     }
   };
 
