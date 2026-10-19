@@ -4,9 +4,9 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "dev:brain": "tsx watch src/index.ts",
+    "dev:brain": "node --import tsx src/index.ts",
     "dev:front": "npm --prefix frontend run dev",
-    "dev": "concurrently -n \"BRAIN,FRONT\" -c \"magenta,cyan\" \"npm run dev:brain\" \"npm run dev:front\"",
+    "dev": "concurrently -k -n \"BRAIN,FRONT\" -c \"magenta,cyan\" \"npm run dev:brain\" \"npm run dev:front\"",
     "db:migrate": "tsx src/database/migrate.ts",
     "build": "tsc && npm --prefix frontend run build",
     "start": "concurrently -n \"BRAIN,FRONT\" -c \"magenta,cyan\" \"tsx src/index.ts\" \"npm --prefix frontend start\""
