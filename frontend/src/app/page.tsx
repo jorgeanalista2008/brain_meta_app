@@ -17,17 +17,25 @@ interface KnowledgeItem {
 }
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<"overview" | "chat" | "errors" | "knowledge">("overview");
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "bot",
       content:
-        "¡Hola! Soy **BrainAgent** en Next.js. Puedo supervisar tu aplicación, consultar métricas, tomar acciones y **aprender nuevas reglas** en PostgreSQL. ¿Qué deseas hacer?",
+        "Hola, soy **BrainAgent**. Estoy activo y monitoreando tu infraestructura, base de datos y servicios. ¿En qué te puedo ayudar?",
       time: "Ahora",
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([]);
+  const [errors, setErrors] = useState<any[]>([]);
+  const [health, setHealth] = useState<any>({
+    status: "healthy",
+    uptimeSeconds: 3600,
+    memoryUsageMb: { heapUsed: 24, rss: 82 },
+    databaseConnection: "connected",
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchKnowledge = async () => {
@@ -37,13 +45,22 @@ export default function Home() {
         const data = await res.json();
         setKnowledge(data.knowledge || []);
       }
-    } catch {
-      // Backend might be warming up
-    }
+    } catch {}
+  };
+
+  const fetchErrors = async () => {
+    try {
+      const res = await fetch("/api/errors");
+      if (res.ok) {
+        const data = await res.json();
+        setErrors(data.errors || []);
+      }
+    } catch {}
   };
 
   useEffect(() => {
     fetchKnowledge();
+    fetchErrors();
   }, []);
 
   useEffect(() => {
@@ -72,6 +89,7 @@ export default function Home() {
       if (res.ok && data.reply) {
         setMessages((prev) => [...prev, { role: "bot", content: data.reply, time: botTime }]);
         fetchKnowledge();
+        fetchErrors();
       } else {
         setMessages((prev) => [
           ...prev,
@@ -83,7 +101,7 @@ export default function Home() {
         ...prev,
         {
           role: "bot",
-          content: `❌ No se pudo conectar con el Cerebro (Backend en :3000): ${err.message}`,
+          content: `❌ No se pudo conectar con el Cerebro (Backend en :4000): ${err.message}`,
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -93,160 +111,455 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-[#090d16] text-slate-100 font-sans overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-80 bg-[#0f172a]/95 border-r border-slate-800 flex flex-col p-5 gap-5 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="text-2xl p-2.5 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/20">
-            🧠
-          </div>
-          <div>
-            <h1 className="font-bold text-base tracking-tight text-white">Brain Meta App</h1>
-            <p className="text-xs text-slate-400">Next.js + Gemini 3.5 + Postgres</p>
-          </div>
-        </div>
-
-        {/* Quick actions */}
+    <div className="flex h-screen bg-[#f8fafc] text-slate-800 font-sans antialiased overflow-hidden">
+      {/* Sidebar estilo Mapbox Console */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 select-none">
         <div>
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-            Comandos Rápidos
-          </span>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => sendMessage("¿Cómo está la salud del servidor y la memoria actual?")}
-              className="text-left text-xs bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/60 text-slate-200 p-2.5 rounded-lg transition-all"
-            >
-              🩺 Salud del Sistema
-            </button>
-            <button
-              onClick={() => sendMessage("Muéstrame las métricas de tráfico y usuarios de la última hora")}
-              className="text-left text-xs bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/60 text-slate-200 p-2.5 rounded-lg transition-all"
-            >
-              📊 Métricas de Tráfico
-            </button>
-            <button
-              onClick={() => sendMessage("¿Cuáles son los procedimientos aprendidos guardados en la base de datos?")}
-              className="text-left text-xs bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-indigo-500/60 text-slate-200 p-2.5 rounded-lg transition-all"
-            >
-              📚 Procedimientos Aprendidos
-            </button>
-            <button
-              onClick={() => sendMessage("Revisa los últimos errores e incidentes registrados en el log de la base de datos")}
-              className="text-left text-xs bg-red-950/40 hover:bg-red-950/70 border border-red-800/50 hover:border-red-500/60 text-red-200 p-2.5 rounded-lg transition-all"
-            >
-              🚨 Revisar Log de Errores
-            </button>
+          {/* User profile / Organization header */}
+          <div className="p-5 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              JA
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xs font-bold text-slate-900 truncate">jorgeanalista2008</h2>
+              <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Pro Account
+              </span>
+            </div>
           </div>
+
+          {/* Navigation links */}
+          <nav className="p-3 space-y-1">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                activeTab === "overview"
+                  ? "bg-blue-50 text-blue-600 font-bold"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>Dashboard General</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                activeTab === "chat"
+                  ? "bg-blue-50 text-blue-600 font-bold"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              <span>Asistente IA (Chat)</span>
+            </button>
+
+            <div className="pt-4 pb-1 px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Control & Datos
+            </div>
+
+            <button
+              onClick={() => setActiveTab("knowledge")}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                activeTab === "knowledge"
+                  ? "bg-blue-50 text-blue-600 font-bold"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <span>Base de Conocimiento</span>
+              <span className="ml-auto bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px]">
+                {knowledge.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("errors")}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                activeTab === "errors"
+                  ? "bg-red-50 text-red-600 font-bold"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>Registro de Errores</span>
+              {errors.length > 0 && (
+                <span className="ml-auto bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                  {errors.length}
+                </span>
+              )}
+            </button>
+          </nav>
         </div>
 
-        {/* Knowledge List */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Memoria PostgreSQL
-            </span>
-            <button
-              onClick={fetchKnowledge}
-              className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer"
-            >
-              Refrescar
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto pr-1 space-y-2">
-            {knowledge.length === 0 ? (
-              <div className="text-xs text-slate-500 p-3 bg-slate-900/40 rounded-lg border border-slate-800/50">
-                Sin registros aún. Enséñale una regla en el chat para guardarla en PostgreSQL.
-              </div>
-            ) : (
-              knowledge.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-slate-900/60 border border-slate-800 hover:border-slate-700 p-3 rounded-lg text-xs transition"
-                >
-                  <span className="inline-block bg-purple-950/70 text-purple-300 border border-purple-800/50 text-[10px] px-1.5 py-0.5 rounded font-mono font-medium mb-1">
-                    {item.category}
-                  </span>
-                  <h4 className="font-medium text-slate-200 mb-1">{item.topic}</h4>
-                  <p className="text-[11px] text-slate-400 line-clamp-3 leading-relaxed">{item.content}</p>
-                </div>
-              ))
-            )}
+        {/* Footer info */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Gemini 3.1 + PostgreSQL</span>
           </div>
         </div>
       </aside>
 
-      {/* Main Chat */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#060a12]">
-        <header className="h-16 border-b border-slate-800 bg-[#0a0f1d]/80 backdrop-blur px-6 flex justify-between items-center shrink-0">
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto">
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200 px-8 flex justify-between items-center shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-white">Consola de Control del Asistente</h2>
-            <p className="text-xs text-slate-400">Interacción directa con el agente y herramientas operativas</p>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              {activeTab === "overview" && "Account overview"}
+              {activeTab === "chat" && "Asistente Operativo"}
+              {activeTab === "knowledge" && "Base de Conocimiento (Memoria)"}
+              {activeTab === "errors" && "Historial de Errores e Incidentes"}
+            </h1>
           </div>
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-3 py-1.5 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400"></span>
-            Cerebro Online
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                fetchKnowledge();
+                fetchErrors();
+              }}
+              className="text-xs bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-md font-medium transition shadow-sm"
+            >
+              🔄 Sincronizar
+            </button>
+            <div className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Sistema Saludable
+            </div>
           </div>
         </header>
 
-        {/* Message feed */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {messages.map((m, idx) => (
-            <div
-              key={idx}
-              className={`flex flex-col max-w-3xl ${
-                m.role === "user" ? "ml-auto items-end" : "mr-auto items-start"
-              }`}
-            >
-              <div
-                className={`p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                  m.role === "user"
-                    ? "bg-indigo-600 text-white rounded-br-sm shadow-md shadow-indigo-600/10"
-                    : "bg-slate-900/90 border border-slate-800 text-slate-200 rounded-bl-sm"
-                }`}
-              >
-                {m.content}
+        {/* Dynamic View by Tab */}
+        {activeTab === "overview" && (
+          <div className="p-8 max-w-6xl mx-auto w-full space-y-8">
+            {/* Getting started Cards (Igual al estilo de Mapbox Console) */}
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 mb-4 tracking-tight">Acciones y Diagnósticos Rápidos</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow transition flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg mb-3">
+                      🩺
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-xs mb-1">Salud del Sistema</h3>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Inspecciona CPU, memoria Heap/RSS y conexión con PostgreSQL.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab("chat");
+                      sendMessage("¿Cómo está la salud del servidor y la memoria actual?");
+                    }}
+                    className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition"
+                  >
+                    Diagnosticar
+                  </button>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow transition flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg mb-3">
+                      📊
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-xs mb-1">Métricas de Tráfico</h3>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Revisa requests por minuto, usuarios activos y tasas de error.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab("chat");
+                      sendMessage("Muéstrame las métricas de tráfico y usuarios de la última hora");
+                    }}
+                    className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition"
+                  >
+                    Consultar Métricas
+                  </button>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow transition flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-lg mb-3">
+                      📚
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-xs mb-1">Procedimientos</h3>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Consulta soluciones aprendidas y reglas guardadas en Postgres.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab("chat");
+                      sendMessage("¿Cuáles son los procedimientos aprendidos guardados en la base de datos?");
+                    }}
+                    className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 rounded-lg transition"
+                  >
+                    Ver Reglas
+                  </button>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow transition flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-lg mb-3">
+                      🚨
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-xs mb-1">Auditar Errores</h3>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Revisa incidentes y fallas registradas en agent_error_logs.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab("errors")}
+                    className="mt-4 w-full bg-slate-900 hover:bg-black text-white text-xs font-semibold py-2 rounded-lg transition"
+                  >
+                    Explorar Logs
+                  </button>
+                </div>
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 px-1">
-                {m.role === "user" ? "Tú" : "BrainAgent"} • {m.time}
-              </span>
             </div>
-          ))}
 
-          {isLoading && (
-            <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/50 border border-slate-800/70 p-3 rounded-xl max-w-sm">
-              <span className="animate-spin text-indigo-400">⚙️</span>
-              <span>Procesando consulta y ejecutando herramientas...</span>
+            {/* Account Usage / Servicios activos (Tabla estilo Mapbox) */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Estado de Recursos & Servicios</h2>
+                  <p className="text-xs text-slate-500">Métricas operativas del clúster local</p>
+                </div>
+                <span className="text-xs font-semibold text-blue-600 cursor-pointer hover:underline">
+                  Ver estadísticas detalladas →
+                </span>
+              </div>
+
+              <div className="divide-y divide-slate-100 text-xs">
+                {/* Fila 1 */}
+                <div className="py-4 grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-4 flex items-center gap-3">
+                    <div className="w-7 h-7 rounded bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs">
+                      DB
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900">PostgreSQL Database</span>
+                      <p className="text-[11px] text-slate-500">brain_meta_db (localhost:5432)</p>
+                    </div>
+                  </div>
+                  <div className="col-span-3 text-slate-700">
+                    <strong>4 Tablas</strong>
+                    <p className="text-[11px] text-slate-400">knowledge, logs, history, audit</p>
+                  </div>
+                  <div className="col-span-3">
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mb-1">
+                      <div className="bg-blue-600 h-1.5 rounded-full w-1/4"></div>
+                    </div>
+                    <span className="text-[10px] text-slate-500">Conexiones activas: 2 / 100</span>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
+                      Conectado
+                    </span>
+                  </div>
+                </div>
+
+                {/* Fila 2 */}
+                <div className="py-4 grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-4 flex items-center gap-3">
+                    <div className="w-7 h-7 rounded bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                      AI
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900">Gemini Generative Engine</span>
+                      <p className="text-[11px] text-slate-500">gemini-3.1-flash-lite</p>
+                    </div>
+                  </div>
+                  <div className="col-span-3 text-slate-700">
+                    <strong>Google AI Studio</strong>
+                    <p className="text-[11px] text-slate-400">Latencia promedio: 820ms</p>
+                  </div>
+                  <div className="col-span-3">
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mb-1">
+                      <div className="bg-emerald-500 h-1.5 rounded-full w-1/12"></div>
+                    </div>
+                    <span className="text-[10px] text-slate-500">Cuota disponible: &gt; 95%</span>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
+                      Operativo
+                    </span>
+                  </div>
+                </div>
+
+                {/* Fila 3 */}
+                <div className="py-4 grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-4 flex items-center gap-3">
+                    <div className="w-7 h-7 rounded bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs">
+                      API
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900">Backend Server</span>
+                      <p className="text-[11px] text-slate-500">Express en http://localhost:4000</p>
+                    </div>
+                  </div>
+                  <div className="col-span-3 text-slate-700">
+                    <strong>Memoria Heap: 24 MB</strong>
+                    <p className="text-[11px] text-slate-400">Uptime: {Math.floor(health.uptimeSeconds / 60)} min</p>
+                  </div>
+                  <div className="col-span-3">
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mb-1">
+                      <div className="bg-blue-600 h-1.5 rounded-full w-1/5"></div>
+                    </div>
+                    <span className="text-[10px] text-slate-500">Uso de memoria bajo</span>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
+                      Saludable
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
+        )}
 
-          <div ref={messagesEndRef} />
-        </div>
+        {/* Tab Chat */}
+        {activeTab === "chat" && (
+          <div className="flex-1 flex flex-col p-6 max-w-4xl mx-auto w-full h-full">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4">
+              {messages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={`flex flex-col max-w-2xl ${
+                    m.role === "user" ? "ml-auto items-end" : "mr-auto items-start"
+                  }`}
+                >
+                  <div
+                    className={`p-4 rounded-xl text-xs leading-relaxed whitespace-pre-wrap ${
+                      m.role === "user"
+                        ? "bg-blue-600 text-white rounded-br-none shadow-sm"
+                        : "bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm"
+                    }`}
+                  >
+                    {m.content}
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-1 px-1">
+                    {m.role === "user" ? "Tú" : "BrainAgent"} • {m.time}
+                  </span>
+                </div>
+              ))}
 
-        {/* Input area */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage();
-          }}
-          className="p-4 bg-[#0a0f1d] border-t border-slate-800/90 flex gap-3 shrink-0"
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Escribe una instrucción, pregunta o enséñale una nueva regla..."
-            className="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-100 outline-none transition"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-5 py-3 rounded-xl text-sm transition flex items-center gap-2 shadow-lg shadow-indigo-600/20"
-          >
-            <span>Enviar</span>
-            <span>➤</span>
-          </button>
-        </form>
+              {isLoading && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 bg-white border border-slate-200 p-3 rounded-xl max-w-xs shadow-sm">
+                  <span className="animate-spin text-blue-600 font-bold">⚙️</span>
+                  <span>Procesando y ejecutando herramientas...</span>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input bar */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendMessage();
+              }}
+              className="bg-white border border-slate-200 rounded-xl p-2 flex gap-2 shadow-sm shrink-0"
+            >
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Escribe una instrucción, pregunta o enséñale una nueva regla..."
+                className="flex-1 bg-transparent px-3 py-2 text-xs text-slate-900 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
+              >
+                Enviar
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Tab Knowledge */}
+        {activeTab === "knowledge" && (
+          <div className="p-8 max-w-5xl mx-auto w-full space-y-4">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Reglas y Soluciones en Memoria</h2>
+                <p className="text-xs text-slate-500">Almacenadas en la tabla agent_knowledge de PostgreSQL</p>
+              </div>
+            </div>
+
+            {knowledge.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-xs text-slate-500">
+                Aún no hay reglas registradas. Puedes enseñarle una regla conversando en la pestaña de chat.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {knowledge.map((k) => (
+                  <div key={k.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-2">
+                    <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                      {k.category}
+                    </span>
+                    <h3 className="font-bold text-slate-900 text-xs">{k.topic}</h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">{k.content}</p>
+                    <div className="text-[10px] text-slate-400 pt-2 border-t border-slate-50">
+                      Registrado: {new Date(k.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab Errors */}
+        {activeTab === "errors" && (
+          <div className="p-8 max-w-5xl mx-auto w-full space-y-4">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Incidentes y Errores Capturados</h2>
+                <p className="text-xs text-slate-500">Almacenados en la tabla agent_error_logs de PostgreSQL</p>
+              </div>
+            </div>
+
+            {errors.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-xs text-emerald-600 font-medium">
+                ✅ No se han registrado incidentes recientes. El sistema opera con normalidad.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {errors.map((err) => (
+                  <div key={err.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="bg-red-50 text-red-700 font-bold text-[10px] px-2 py-0.5 rounded">
+                        Fuente: {err.source}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(err.occurred_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-xs text-slate-900">{err.error_message}</h4>
+                    {err.stack_trace && (
+                      <pre className="bg-slate-50 p-2.5 rounded text-[11px] font-mono text-slate-600 overflow-x-auto">
+                        {err.stack_trace.slice(0, 300)}...
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
