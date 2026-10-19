@@ -3,6 +3,7 @@ import {
   saveLearnedKnowledge,
   searchLearnedKnowledge,
   logAuditAction,
+  getErrorLogs,
 } from "./memoryTools.js";
 
 export const getSystemHealthDeclaration: FunctionDeclaration = {
@@ -87,6 +88,9 @@ export async function executeTool(name: string, args: Record<string, any>): Prom
 
     case "searchLearnedKnowledge":
       return await searchLearnedKnowledge(args.query);
+
+    case "getErrorLogs":
+      return await getErrorLogs(args.limit, args.unresolvedOnly);
 
     default:
       throw new Error(`Herramienta no implementada: ${name}`);

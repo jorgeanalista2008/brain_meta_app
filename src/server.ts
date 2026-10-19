@@ -3,7 +3,7 @@ import cors from "cors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config/env.js";
-import { initDatabase, pool } from "./database/db.js";
+import { initDatabase, pool, logErrorToDb } from "./database/db.js";
 import { BrainAgent } from "./agent/brainAgent.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +33,8 @@ app.post("/api/chat", async (req, res) => {
     res.json({ reply });
   } catch (error: any) {
     console.error("❌ [/api/chat] Error al procesar mensaje:", error);
+    // Guardar automáticamente el error en la tabla agent_error_logs
+    await logErrorToDb("api_chat", error, { message: req.body?.message });
     res.status(500).json({ error: error.message || "Error interno del servidor" });
   }
 });
@@ -47,6 +49,21 @@ app.get("/api/knowledge", async (_req, res) => {
       LIMIT 20;
     `);
     res.json({ knowledge: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para consultar el historial de errores e incidentes
+app.get("/api/errors", async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, source, error_message, stack_trace, metadata, resolved, occurred_at 
+      FROM agent_error_logs 
+      ORDER BY occurred_at DESC 
+      LIMIT 30;
+    `);
+    res.json({ errors: result.rows });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

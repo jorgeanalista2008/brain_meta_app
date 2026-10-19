@@ -130,6 +130,12 @@ export default function Home() {
             >
               📚 Procedimientos Aprendidos
             </button>
+            <button
+              onClick={() => sendMessage("Revisa los últimos errores e incidentes registrados en el log de la base de datos")}
+              className="text-left text-xs bg-red-950/40 hover:bg-red-950/70 border border-red-800/50 hover:border-red-500/60 text-red-200 p-2.5 rounded-lg transition-all"
+            >
+              🚨 Revisar Log de Errores
+            </button>
           </div>
         </div>
 

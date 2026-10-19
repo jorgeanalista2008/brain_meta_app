@@ -48,6 +48,17 @@ export async function initDatabase(): Promise<boolean> {
           result JSONB,
           executed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- 4. Registro de errores e incidentes del sistema y de la IA
+        CREATE TABLE IF NOT EXISTS agent_error_logs (
+          id SERIAL PRIMARY KEY,
+          source VARCHAR(100) NOT NULL,       -- ej: 'agent_runner', 'api_chat', 'database', 'tool_execution'
+          error_message TEXT NOT NULL,        -- Mensaje del error
+          stack_trace TEXT,                   -- Traza completa del error
+          metadata JSONB,                     -- Contexto extra (prompt del usuario, argumentos de la herramienta, etc.)
+          resolved BOOLEAN DEFAULT FALSE,     -- Si el error fue mitigado o resuelto
+          occurred_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
       `);
 
       console.log("✅ [PostgreSQL] Tablas de memoria del agente listas.");
@@ -59,5 +70,26 @@ export async function initDatabase(): Promise<boolean> {
     console.warn(`⚠️ [PostgreSQL] No se pudo conectar a la base de datos (${error.message}).`);
     console.warn("   Verifica las credenciales en tu archivo .env");
     return false;
+  }
+}
+
+/**
+ * Guarda un error en la tabla agent_error_logs para auditoría y resolución
+ */
+export async function logErrorToDb(
+  source: string,
+  error: any,
+  metadata?: Record<string, any>
+): Promise<void> {
+  try {
+    const query = `
+      INSERT INTO agent_error_logs (source, error_message, stack_trace, metadata)
+      VALUES ($1, $2, $3, $4);
+    `;
+    const message = error?.message || String(error);
+    const stack = error?.stack || null;
+    await pool.query(query, [source, message, stack, JSON.stringify(metadata || {})]);
+  } catch (err: any) {
+    console.error("Fallo al guardar log de error en PostgreSQL:", err.message);
   }
 }

@@ -9,6 +9,7 @@ import {
 import {
   saveLearnedKnowledgeDeclaration,
   searchLearnedKnowledgeDeclaration,
+  getErrorLogsDeclaration,
 } from "../tools/memoryTools.js";
 
 export class BrainAgent {
@@ -46,6 +47,7 @@ Responde de forma concisa, profesional y estructurada.
               restartServiceDeclaration,
               saveLearnedKnowledgeDeclaration,
               searchLearnedKnowledgeDeclaration,
+              getErrorLogsDeclaration,
             ],
           },
         ],

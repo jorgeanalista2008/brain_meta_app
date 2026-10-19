@@ -41,6 +41,25 @@ export const searchLearnedKnowledgeDeclaration: FunctionDeclaration = {
   },
 };
 
+// Declaración: Consultar el historial de errores e incidentes
+export const getErrorLogsDeclaration: FunctionDeclaration = {
+  name: "getErrorLogs",
+  description: "Consulta los últimos errores e incidentes registrados en PostgreSQL para diagnóstico.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      limit: {
+        type: Type.NUMBER,
+        description: "Cantidad de errores a consultar (por defecto 5).",
+      },
+      unresolvedOnly: {
+        type: Type.BOOLEAN,
+        description: "Si es true, solo trae errores no resueltos. Por defecto false.",
+      },
+    },
+  },
+};
+
 // Funciones para interactuar con PostgreSQL
 export async function saveLearnedKnowledge(category: string, topic: string, content: string) {
   const query = `
@@ -81,4 +100,20 @@ export async function logAuditAction(actionName: string, parameters: any, result
   } catch (err: any) {
     console.error("Error al registrar auditoría en PostgreSQL:", err.message);
   }
+}
+
+export async function getErrorLogs(limit: number = 5, unresolvedOnly: boolean = false) {
+  const whereClause = unresolvedOnly ? "WHERE resolved = FALSE" : "";
+  const query = `
+    SELECT id, source, error_message, stack_trace, metadata, resolved, occurred_at
+    FROM agent_error_logs
+    ${whereClause}
+    ORDER BY occurred_at DESC
+    LIMIT $1;
+  `;
+  const res = await pool.query(query, [limit]);
+  return {
+    count: res.rowCount,
+    errors: res.rows,
+  };
 }
