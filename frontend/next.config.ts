@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
@@ -9,15 +15,8 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  cacheComponents: true,
-  partialPrefetching: true,
   turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
+    root: __dirname,
   },
 };
 
