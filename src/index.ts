@@ -17,43 +17,48 @@ async function main() {
   // Iniciar servidor web e interfaz UI
   await startServer();
 
-  const agent = new BrainAgent();
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  console.log("\nEjemplos de comandos que puedes probar:");
-  console.log("- \"¿Cómo está la salud del servidor ahora?\"");
-  console.log("- \"Muéstrame las métricas de usuarios y solicitudes de las últimas 24h\"");
-  console.log("- \"El servicio de auth está fallando, por favor reinícialo\"\n");
-
-  const ask = () => {
-    rl.question("\n👤 Tú: ", async (input) => {
-      const trimmed = input.trim();
-      if (trimmed.toLowerCase() === "salir" || trimmed.toLowerCase() === "exit") {
-        console.log("Cerrando sesión de control. ¡Hasta luego!");
-        rl.close();
-        return;
-      }
-
-      if (!trimmed) {
-        ask();
-        return;
-      }
-
-      try {
-        const reply = await agent.run(trimmed);
-        console.log(`\n🧠 BrainAgent:\n${reply}`);
-      } catch (error: any) {
-        console.error("\n❌ Error al procesar tu solicitud:", error.message || error);
-      }
-
-      ask();
+  // Solo iniciar CLI interactivo si la terminal es interactiva (TTY)
+  if (process.stdin.isTTY) {
+    const agent = new BrainAgent();
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
     });
-  };
 
-  ask();
+    console.log("\nEjemplos de comandos que puedes probar:");
+    console.log("- \"¿Cómo está la salud del servidor ahora?\"");
+    console.log("- \"Muéstrame las métricas de usuarios y solicitudes de las últimas 24h\"");
+    console.log("- \"El servicio de auth está fallando, por favor reinícialo\"\n");
+
+    const ask = () => {
+      rl.question("\n👤 Tú: ", async (input) => {
+        const trimmed = input.trim();
+        if (trimmed.toLowerCase() === "salir" || trimmed.toLowerCase() === "exit") {
+          console.log("Cerrando sesión de control. ¡Hasta luego!");
+          rl.close();
+          return;
+        }
+
+        if (!trimmed) {
+          ask();
+          return;
+        }
+
+        try {
+          const reply = await agent.run(trimmed);
+          console.log(`\n🧠 BrainAgent:\n${reply}`);
+        } catch (error: any) {
+          console.error("\n❌ Error al procesar tu solicitud:", error.message || error);
+        }
+
+        ask();
+      });
+    };
+
+    ask();
+  } else {
+    console.log("📡 Modo servidor activo. Las peticiones se reciben a través de la API REST / Frontend.");
+  }
 }
 
 main();

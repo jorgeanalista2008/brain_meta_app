@@ -21,6 +21,7 @@ export class BrainAgent {
   }
 
   async run(prompt: string): Promise<string> {
+    console.log(`🧠 [BrainAgent] Recibida consulta: "${prompt}"`);
     const systemInstruction = `
 Eres BrainAgent, la inteligencia central y asistente de operaciones y control de la aplicación.
 Tienes acceso a herramientas de telemetría, métricas, acciones operativas y una MEMORIA PERMANENTE en PostgreSQL.
