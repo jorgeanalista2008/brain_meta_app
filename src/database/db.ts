@@ -22,23 +22,45 @@ export async function initDatabase(): Promise<boolean> {
     const client = await pool.connect();
     try {
       await client.query(`
+        -- 0. Tabla de Usuarios para Autenticación Privada
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          name VARCHAR(150) NOT NULL,
+          role VARCHAR(50) DEFAULT 'admin',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
         -- 1. Base de conocimiento / Aprendizajes de la IA
         CREATE TABLE IF NOT EXISTS agent_knowledge (
           id SERIAL PRIMARY KEY,
-          category VARCHAR(100) NOT NULL, -- ej: 'incident_solution', 'rule', 'architecture', 'user_preference'
-          topic VARCHAR(255) NOT NULL,    -- ej: 'falla en auth-service', 'limpieza de memoria'
-          content TEXT NOT NULL,          -- Descripción detallada de lo aprendido
+          category VARCHAR(100) NOT NULL,
+          topic VARCHAR(255) NOT NULL,
+          content TEXT NOT NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
 
-        -- 2. Historial de conversaciones
+        -- 2. Historial de conversaciones privadas por usuario
         CREATE TABLE IF NOT EXISTS agent_history (
           id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
           role VARCHAR(20) NOT NULL,      -- 'user' o 'agent'
           content TEXT NOT NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- Garantizar columna user_id en instalaciones existentes
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'agent_history' AND column_name = 'user_id'
+          ) THEN
+            ALTER TABLE agent_history ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+          END IF;
+        END $$;
 
         -- 3. Registro de auditoría de acciones ejecutadas por la IA
         CREATE TABLE IF NOT EXISTS agent_audit_logs (

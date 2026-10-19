@@ -25,8 +25,24 @@ interface CategoryItem {
   created_at: string;
 }
 
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"overview" | "chat" | "errors" | "knowledge" | "categories">("overview");
+  const [user, setUser] = useState<User | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "bot",
@@ -60,6 +76,143 @@ export default function Home() {
     databaseConnection: "connected",
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const loadChatHistory = async (token?: string) => {
+    try {
+      const activeJwt = token || authToken || localStorage.getItem("brain_token");
+      const headers: Record<string, string> = {};
+      if (activeJwt) headers["Authorization"] = `Bearer ${activeJwt}`;
+
+      const res = await fetch("/api/chat/history", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.history && data.history.length > 0) {
+          setMessages(
+            data.history.map((h: any) => ({
+              role: h.role === "agent" ? "bot" : "user",
+              content: h.content,
+              time: new Date(h.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            }))
+          );
+        }
+      }
+    } catch {}
+  };
+
+  const checkCurrentUser = async () => {
+    const savedToken = localStorage.getItem("brain_token");
+    if (!savedToken) return;
+
+    setAuthToken(savedToken);
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${savedToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+          loadChatHistory(savedToken);
+        }
+      } else {
+        localStorage.removeItem("brain_token");
+        setAuthToken(null);
+        setUser(null);
+      }
+    } catch {
+      localStorage.removeItem("brain_token");
+      setAuthToken(null);
+    }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authEmail.trim() || !authPassword.trim()) return;
+
+    setIsSubmittingAuth(true);
+    const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+    const payload =
+      authMode === "login"
+        ? { email: authEmail.trim(), password: authPassword.trim() }
+        : { name: authName.trim(), email: authEmail.trim(), password: authPassword.trim() };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.token) {
+        localStorage.setItem("brain_token", data.token);
+        setAuthToken(data.token);
+        setUser(data.user);
+        setShowAuthModal(false);
+        setAuthEmail("");
+        setAuthPassword("");
+        setAuthName("");
+        await loadChatHistory(data.token);
+
+        Swal.fire({
+          icon: "success",
+          title: authMode === "login" ? "Sesión iniciada" : "Cuenta creada",
+          text: `Bienvenido, ${data.user.name}. Tu historial de chat ahora es privado.`,
+          timer: 2000,
+          showConfirmButton: false,
+          customClass: { popup: "rounded-2xl" },
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error de autenticación",
+          text: data.error || "Datos incorrectos.",
+          customClass: { popup: "rounded-2xl" },
+        });
+      }
+    } catch (err: any) {
+      Swal.fire({
+        icon: "error",
+        title: "Error de conexión",
+        text: err.message,
+        customClass: { popup: "rounded-2xl" },
+      });
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: "¿Cerrar sesión?",
+      text: "Saldrás de tu cuenta privada de operaciones.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, salir",
+      cancelButtonText: "Cancelar",
+      customClass: { popup: "rounded-2xl" },
+    });
+
+    if (result.isConfirmed) {
+      localStorage.removeItem("brain_token");
+      setAuthToken(null);
+      setUser(null);
+      setMessages([
+        {
+          role: "bot",
+          content: "Has cerrado sesión. Las conversaciones anónimas no se guardan de forma privada.",
+          time: "Ahora",
+        },
+      ]);
+      Swal.fire({
+        icon: "info",
+        title: "Sesión cerrada",
+        timer: 1500,
+        showConfirmButton: false,
+        customClass: { popup: "rounded-2xl" },
+      });
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -275,6 +428,7 @@ export default function Home() {
     fetchKnowledge();
     fetchErrors();
     fetchCategories();
+    checkCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -291,9 +445,13 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      const activeJwt = authToken || localStorage.getItem("brain_token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (activeJwt) headers["Authorization"] = `Bearer ${activeJwt}`;
+
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ message: text }),
       });
 
@@ -338,16 +496,45 @@ export default function Home() {
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 select-none">
         <div>
           {/* User profile / Organization header */}
-          <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-              JA
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-xs font-bold text-slate-900 truncate">jorgeanalista2008</h2>
-              <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Pro Account
-              </span>
-            </div>
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            {user ? (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shrink-0 uppercase">
+                  {user.name.slice(0, 2)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xs font-bold text-slate-900 truncate">{user.name}</h2>
+                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Privado ({user.role})
+                  </span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Cerrar sesión"
+                  className="text-slate-400 hover:text-red-600 p-1 rounded transition text-xs"
+                >
+                  🚪
+                </button>
+              </div>
+            ) : (
+              <div className="w-full flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs">
+                    ?
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-bold text-slate-800">Modo Invitado</h2>
+                    <span className="text-[10px] text-slate-400">Historial no persistido</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 rounded-lg transition text-center shadow-xs"
+                >
+                  Iniciar Sesión / Registro
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Navigation links */}
@@ -1027,7 +1214,133 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {/* Modal de Autenticación (Login / Registro) */}
+        {showAuthModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              {/* Modal Header */}
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-sm shadow-blue-500/20">
+                    B
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      {authMode === "login" ? "Iniciar Sesión" : "Crear Cuenta"}
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {authMode === "login" ? "Accede a tus chats y operaciones privadas" : "Regístrate para mantener tu historial seguro"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Tabs Switcher */}
+              <div className="px-5 pt-4">
+                <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-lg text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("login")}
+                    className={`py-1.5 rounded-md transition ${
+                      authMode === "login"
+                        ? "bg-white text-slate-900 shadow-sm font-semibold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Ingresar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("register")}
+                    className={`py-1.5 rounded-md transition ${
+                      authMode === "register"
+                        ? "bg-white text-slate-900 shadow-sm font-semibold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Registrarse
+                  </button>
+                </div>
+              </div>
+
+              {/* Formulario */}
+              <form onSubmit={handleAuthSubmit} className="p-5 space-y-3.5">
+                {authMode === "register" && (
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                      Nombre completo
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      placeholder="Ej. Jorge Analista"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white transition"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Correo electrónico
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="operador@empresa.com"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:bg-white transition"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAuth}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold py-2.5 rounded-lg shadow-sm shadow-blue-500/20 transition flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingAuth ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        <span>Procesando...</span>
+                      </>
+                    ) : authMode === "login" ? (
+                      "Iniciar Sesión"
+                    ) : (
+                      "Crear Cuenta Privada"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
 }
+

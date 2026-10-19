@@ -2,6 +2,7 @@ import "dotenv/config";
 
 export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY || "",
+  jwtSecret: process.env.JWT_SECRET || "brain_meta_app_secret_key_2026_jwt",
   port: Number(process.env.PORT) || 4000,
   db: {
     host: process.env.DB_HOST || "localhost",
