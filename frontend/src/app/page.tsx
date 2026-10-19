@@ -32,7 +32,7 @@ export default function Home() {
 
   const fetchKnowledge = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/knowledge");
+      const res = await fetch("http://localhost:4000/api/knowledge");
       if (res.ok) {
         const data = await res.json();
         setKnowledge(data.knowledge || []);
@@ -60,7 +60,7 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/api/chat", {
+      const res = await fetch("http://localhost:4000/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),

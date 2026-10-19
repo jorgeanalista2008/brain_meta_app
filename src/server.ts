@@ -21,6 +21,7 @@ const agent = new BrainAgent();
 
 // Endpoint para enviar mensajes al agente
 app.post("/api/chat", async (req, res) => {
+  console.log("📨 [/api/chat] Recibida petición:", req.body);
   try {
     const { message } = req.body;
     if (!message || typeof message !== "string") {
@@ -28,9 +29,10 @@ app.post("/api/chat", async (req, res) => {
     }
 
     const reply = await agent.run(message);
+    console.log("✅ [/api/chat] Respuesta generada, enviando al cliente...");
     res.json({ reply });
   } catch (error: any) {
-    console.error("Error al procesar mensaje con BrainAgent:", error);
+    console.error("❌ [/api/chat] Error al procesar mensaje:", error);
     res.status(500).json({ error: error.message || "Error interno del servidor" });
   }
 });

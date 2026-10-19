@@ -15,7 +15,7 @@ export class BrainAgent {
   private ai: GoogleGenAI;
   private modelName: string;
 
-  constructor(modelName: string = "gemini-3.5-flash") {
+  constructor(modelName: string = "gemini-3.1-flash-lite") {
     this.ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
     this.modelName = modelName;
   }

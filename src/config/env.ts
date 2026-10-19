@@ -2,7 +2,7 @@ import "dotenv/config";
 
 export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY || "",
-  port: Number(process.env.PORT) || 3000,
+  port: Number(process.env.PORT) || 4000,
   db: {
     host: process.env.DB_HOST || "localhost",
     port: Number(process.env.DB_PORT) || 5432,
