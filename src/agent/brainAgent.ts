@@ -3,6 +3,7 @@ import { config } from "../config/env.js";
 import {
   getSystemHealthDeclaration,
   getAppMetricsDeclaration,
+  getRegisteredUsersDeclaration,
   restartServiceDeclaration,
   executeTool,
 } from "../tools/appControlTools.js";
@@ -44,6 +45,7 @@ Responde de forma concisa, profesional y estructurada.
             functionDeclarations: [
               getSystemHealthDeclaration,
               getAppMetricsDeclaration,
+              getRegisteredUsersDeclaration,
               restartServiceDeclaration,
               saveLearnedKnowledgeDeclaration,
               searchLearnedKnowledgeDeclaration,
