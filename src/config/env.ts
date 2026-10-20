@@ -4,6 +4,12 @@ export const config = {
   geminiApiKey: process.env.GEMINI_API_KEY || "",
   jwtSecret: process.env.JWT_SECRET || "brain_meta_app_secret_key_2026_jwt",
   port: Number(process.env.PORT) || 4000,
+  meta: {
+    verifyToken: process.env.META_VERIFY_TOKEN || "brain_meta_verify_token_secure_2026",
+    accessToken: process.env.META_ACCESS_TOKEN || "",
+    phoneNumberId: process.env.META_PHONE_NUMBER_ID || "",
+    apiVersion: process.env.META_API_VERSION || "v21.0",
+  },
   db: {
     host: process.env.DB_HOST || "localhost",
     port: Number(process.env.DB_PORT) || 5432,

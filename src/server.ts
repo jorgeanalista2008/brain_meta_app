@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { config } from "./config/env.js";
 import { initDatabase, pool, logErrorToDb } from "./database/db.js";
 import { BrainAgent } from "./agent/brainAgent.js";
+import { sendWhatsAppMessage } from "./services/whatsappService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +43,79 @@ function authenticateToken(req: any, res: any, next: any) {
 }
 
 app.use(authenticateToken);
+
+// ==========================================
+// WEBHOOK META (WHATSAPP CLOUD API)
+// ==========================================
+
+// 1. Verificación del Webhook por Meta (GET /webhook)
+app.get("/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  console.log(`📡 [Meta Webhook Verification] mode=${mode}, token=${token}`);
+
+  if (mode === "subscribe" && token === config.meta.verifyToken) {
+    console.log("✅ [Meta Webhook] ¡Verificación exitosa por Meta!");
+    return res.status(200).send(challenge);
+  }
+
+  console.warn("❌ [Meta Webhook] Token de verificación inválido o solicitud no autorizada.");
+  res.sendStatus(403);
+});
+
+// 2. Recepción de Eventos y Mensajes de WhatsApp (POST /webhook)
+app.post("/webhook", async (req, res) => {
+  // Responder 200 OK inmediatamente a Meta para confirmar recepción y evitar reintentos
+  res.status(200).send("EVENT_RECEIVED");
+
+  try {
+    const body = req.body;
+    console.log("📩 [Meta Webhook Event]:", JSON.stringify(body, null, 2));
+
+    if (body.object === "whatsapp_business_account") {
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const message = value?.messages?.[0];
+
+      if (message && message.type === "text") {
+        const from = message.from; // Número de WhatsApp remitente (ej: "584121234567")
+        const userText = message.text?.body;
+        const contactName = value?.contacts?.[0]?.profile?.name || "Usuario WhatsApp";
+
+        console.log(`💬 [WhatsApp Incoming] De: ${contactName} (${from}) -> "${userText}"`);
+
+        // Procesar con el Cerebro (BrainAgent)
+        const agentPrompt = `[Mensaje de WhatsApp de ${contactName} (Tel: ${from})]: ${userText}`;
+        const brainReply = await agent.run(agentPrompt);
+
+        console.log(`🧠 [BrainAgent Reply -> WhatsApp]: ${brainReply}`);
+
+        // Registrar en el historial de base de datos
+        try {
+          await pool.query(
+            "INSERT INTO agent_history (user_id, role, content) VALUES (NULL, 'user', $1);",
+            [`[WhatsApp ${from} - ${contactName}]: ${userText}`]
+          );
+          await pool.query(
+            "INSERT INTO agent_history (user_id, role, content) VALUES (NULL, 'agent', $1);",
+            [`[WhatsApp -> ${from}]: ${brainReply}`]
+          );
+        } catch (dbErr) {
+          console.error("Error guardando historial WhatsApp en DB:", dbErr);
+        }
+
+        // Responder al usuario a través de WhatsApp Cloud API
+        await sendWhatsAppMessage(from, brainReply);
+      }
+    }
+  } catch (error: any) {
+    console.error("❌ Error procesando evento de Meta Webhook:", error);
+    await logErrorToDb(error, { endpoint: "/webhook", method: "POST" });
+  }
+});
 
 // ==========================================
 // AUTENTICACIÓN (LOGIN / REGISTRO / ME)
