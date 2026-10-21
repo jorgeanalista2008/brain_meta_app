@@ -3,13 +3,20 @@ import { config } from "../config/env.js";
 
 const { Pool } = pg;
 
-export const pool = new Pool({
-  host: config.db.host,
-  port: config.db.port,
-  user: config.db.user,
-  password: config.db.password,
-  database: config.db.database,
-});
+export const pool = new Pool(
+  config.db.connectionString
+    ? {
+        connectionString: config.db.connectionString,
+        ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
+      }
+    : {
+        host: config.db.host,
+        port: config.db.port,
+        user: config.db.user,
+        password: config.db.password,
+        database: config.db.database,
+      }
+);
 
 /**
  * Inicializa las tablas necesarias para la memoria del agente:
