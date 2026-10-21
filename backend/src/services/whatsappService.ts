@@ -27,13 +27,13 @@ export async function sendWhatsAppMessage(to: string, message: string): Promise<
       }),
     });
 
-    const data = await res.json();
+    const data: any = await res.json();
     if (!res.ok) {
       console.error("❌ Error enviando mensaje por WhatsApp API:", data);
       return false;
     }
 
-    console.log(`✅ [WhatsApp Enviado a ${to}]: ID=${data.messages?.[0]?.id}`);
+    console.log(`✅ [WhatsApp Enviado a ${to}]: ID=${data?.messages?.[0]?.id}`);
     return true;
   } catch (error) {
     console.error("❌ Excepción enviando WhatsApp:", error);

@@ -1,25 +1,20 @@
 {
   "name": "brain_meta_app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Brain Meta App - Monorepo (Backend + Frontend)",
   "type": "module",
   "scripts": {
-    "dev:brain": "node --import tsx src/index.ts",
-    "dev:front": "npm --prefix frontend run dev",
-    "dev": "concurrently -k -n \"BRAIN,FRONT\" -c \"magenta,cyan\" \"npm run dev:brain\" \"npm run dev:front\"",
-    "db:migrate": "tsx src/database/migrate.ts",
-    "build": "tsc && npm --prefix frontend run build",
-    "start": "concurrently -n \"BRAIN,FRONT\" -c \"magenta,cyan\" \"tsx src/index.ts\" \"npm --prefix frontend start\""
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"magenta,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"magenta,cyan\" \"npm --prefix backend start\" \"npm --prefix frontend start\""
   },
-  "bugs": {
-    "url": "https://github.com/jorgeanalista2008/brain_meta_app/issues"
-  },
-  "homepage": "https://github.com/jorgeanalista2008/brain_meta_app#readme",
   "dependencies": {
     "@google/genai": "^2.30.0",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/pg": "^8.23.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.8",
@@ -30,8 +25,11 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
     "concurrently": "^10.0.6",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
